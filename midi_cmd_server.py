@@ -70,6 +70,8 @@ while True:
     if msg.type == "control_change":
       if msg.control in cmds:
         if msg.value in cmds[msg.control]:
+          # apped " &" to the end of commands, to run them in background
+          # and immediately get back to the script
           myCmd = cmds[msg.control][msg.value]["cmd"] + " &"
           upCheck = cmds[msg.control][msg.value]["uptime"]
           if upCheck > 0:
