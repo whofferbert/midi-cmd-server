@@ -15,7 +15,7 @@ Also requires 'amidithru'
 
 The script creates a virtual midi device (MidiCmdServer), and listens to it for incoming midi control change messages.
 
-In the script, you can fill _ with control change identifiers, values, and the desired command to run.
+In the script, you can add control change identifiers, values, and the desired command to run, along with an optional uptime restriction.
 
 Generally, add an entry to your crontab to call the script on startup:
 (Make sure you set your path properly)
