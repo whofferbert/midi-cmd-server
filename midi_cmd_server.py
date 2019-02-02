@@ -1,27 +1,26 @@
 #!/usr/bin/python3
 # by William Hofferbert
-# Midi Shutdown Server
+# Midi Command Server
 # creates a virtual midi device via amidithru,
 # then listens for a control change message
-# on that device, running a shutdown command
-# via os.system when it gets that command.
+# on that device, running the defined commands
+# via os.system when it receives the proper
+# midi CC and value.
 
 import time
 import mido
 import os
 import re
 
+cmds = dict()
+
 def midi_cmd(cc, val, cmd, uptime = 0):
   global cmds
-  global cmd_num
   if cc not in cmds:
     cmds[cc] = {}
   cmds[cc][val] = {}
   cmds[cc][val]["cmd"] = cmd
   cmds[cc][val]["uptime"] = uptime
-    
-cmds = dict()
-cmd_num = 0
 
 #
 # Script setup
@@ -33,9 +32,9 @@ name = "MidiCmdServer"
 # set up midi commands here
 # cc, cc_val, command, optional uptime seconds restriction
 midi_cmd(64, 127, "echo '64 on' >> /tmp/test", 120)
+# this would be the shutdown server functionality here
 #midi_cmd(64, 127, "init 0", 120)
 midi_cmd(64, 0,   "echo '64 off' >> /tmp/test")
-midi_cmd(65, 30,  "echo 'other' >> /tmp/test")
 
 #
 # Logic below
@@ -72,9 +71,9 @@ while True:
       if msg.control in cmds:
         if msg.value in cmds[msg.control]:
           myCmd = cmds[msg.control][msg.value]["cmd"] + " &"
-          upcheck = cmds[msg.control][msg.value]["uptime"]
-          if upcheck > 0:
-            if uptime() > upcheck:
+          upCheck = cmds[msg.control][msg.value]["uptime"]
+          if upCheck > 0:
+            if uptime() > upCheck:
               os.system(myCmd)
           else:
             os.system(myCmd)
