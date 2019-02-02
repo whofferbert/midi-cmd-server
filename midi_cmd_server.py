@@ -30,7 +30,7 @@ def midi_cmd(cc, val, cmd, uptime = 0):
 name = "MidiCmdServer"
 
 # set up midi commands here
-# cc, cc_val, command, optional uptime seconds restriction
+# midi_cmd ( cc, cc_val, command, optional uptime seconds restriction )
 midi_cmd(64, 127, "echo '64 on' >> /tmp/test", 120)
 # this would be the shutdown server functionality here
 #midi_cmd(64, 127, "init 0", 120)
