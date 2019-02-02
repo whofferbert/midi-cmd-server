@@ -32,3 +32,25 @@ Generally, add an entry to your crontab to call the script on startup:
 ```bash
 @reboot /usr/bin/sudo /path/to/midi_cmd_server.py &
 ```
+
+Note about sudo
+---------------
+
+This script requires root to run, so you need to call it with sudo if you are not the root user.
+
+To have this work on boot, you must not have sudo require a password to work.
+
+You can achieve this by adding a new file and rule to your sudoers config. with visudo (username modep in examples):
+
+```bash
+sudo visudo -f /etc/sudoers.d/modep
+```
+
+Once in visudo, write the sudoers rule to allow your user to run sudo without a password:
+
+```bash
+modep ALL = (ALL:ALL) NOPASSWD: ALL
+```
+
+After that, you can log out and back in or reboot, and then be able to run sudo things without a password.
+
