@@ -12,16 +12,27 @@ import mido
 import os
 import re
 
-cmds = dict()
+cc_cmds = dict()
+note_cmds = dict()
 
-def midi_cmd(cc, val, cmd, uptime = 0):
-  global cmds
-  if cc not in cmds:
-    cmds[cc] = {}
-  cmds[cc][val] = {}
-  cmds[cc][val]["cmd"] = cmd
-  cmds[cc][val]["uptime"] = uptime
+def midi_cc_cmd(cc, val, cmd, uptime = 0):
+  global cc_cmds
+  if cc not in cc_cmds:
+    cc_cmds[cc] = {}
+  cc_cmds[cc][val] = {}
+  cc_cmds[cc][val]["cmd"] = cmd
+  cc_cmds[cc][val]["uptime"] = uptime
 
+def midi_note_cmd(note, vel, cmd, uptime = 0):
+  global note_cmds
+  if note not in note_cmds:
+    note_cmds[note] = {}
+  note_cmds[note]["velocity"] = vel
+  note_cmds[note]["cmd"] = cmd
+  note_cmds[note]["uptime"] = uptime
+  note_cmds[note]["lastTriggered"] = 0;
+
+#
 #
 # Script setup
 #
@@ -29,12 +40,26 @@ def midi_cmd(cc, val, cmd, uptime = 0):
 # midi device naming
 name = "MidiCmdServer"
 
-# set up midi commands here
+# set up midi cc commands here
 # midi_cmd ( cc, cc_val, command, optional uptime seconds restriction )
-midi_cmd(64, 127, "echo '64 on' >> /tmp/test", 120)
+midi_cc_cmd(64, 127, "echo '64 on' >> /tmp/test", 120)
 # this would be the shutdown server functionality here
 #midi_cmd(64, 127, "init 0", 120)
-midi_cmd(64, 0,   "echo '64 off' >> /tmp/test")
+midi_cc_cmd(64, 0,   "echo '64 off' >> /tmp/test")
+
+# midi note cmd for switching to a pedalboard
+# example commands requires newest modep-btn-scripts: https://github.com/BlokasLabs/modep-btn-scripts
+#midi_note_cmd(note, min velocity, "cmd", uptimeSecs)
+midi_note_cmd(64, 64, "/usr/local/modep/modep-btn-scripts/modep-ctrl.py load-board DEFAULT")
+midi_note_cmd(65, 64, "/usr/local/modep/modep-btn-scripts/modep-ctrl.py load-board DISTORTION")
+midi_note_cmd(1, 64, "/usr/local/modep/modep-btn-scripts/modep-ctrl.py load-board mono_synth")
+midi_note_cmd(2, 64, "/usr/local/modep/modep-btn-scripts/modep-ctrl.py load-board insanity")
+
+# the minimum number of seconds that must pass before
+# a note on can retrigger it's command. May need to
+# increase this if you have notes that ring out, or shorten
+# it if you need commands to retrigger very quickly
+note_cmd_retrigger_delay = 1
 
 #
 # Logic below
@@ -68,14 +93,29 @@ while True:
   while inport.pending():
     msg = inport.receive()
     if msg.type == "control_change":
-      if msg.control in cmds:
-        if msg.value in cmds[msg.control]:
+      if msg.control in cc_cmds:
+        if msg.value in cc_cmds[msg.control]:
           # apped " &" to the end of commands, to run them in background
           # and immediately get back to the script
-          myCmd = cmds[msg.control][msg.value]["cmd"] + " &"
-          upCheck = cmds[msg.control][msg.value]["uptime"]
+          myCmd = cc_cmds[msg.control][msg.value]["cmd"] + " &"
+          upCheck = cc_cmds[msg.control][msg.value]["uptime"]
           if upCheck > 0:
             if uptime() > upCheck:
               os.system(myCmd)
           else:
             os.system(myCmd)
+    if msg.type == "note_on":
+      if msg.note in cmds:
+        if msg.velocity in note_cmds[msg.note]["velocity"]:
+          # do not trigger too quickly on notes
+          if note_cmds[msg.note]["lastTriggered"] + note_cmd_retrigger_delay < uptime()
+            note_cmds[msg.note]["lastTriggered"] = uptime()
+            # apped " &" to the end of commands, to run them in background
+            # and immediately get back to the script
+            myCmd = note_cmds[msg.control][msg.value]["cmd"] + " &"
+            upCheck = note_cmds[msg.control][msg.value]["uptime"]
+            if upCheck > 0:
+              if uptime() > upCheck:
+                os.system(myCmd)
+            else:
+              os.system(myCmd)
