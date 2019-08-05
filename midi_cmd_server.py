@@ -10,6 +10,7 @@
 import time
 import mido
 import os
+import subprocess
 import re
 
 cc_cmds = dict()
@@ -37,7 +38,7 @@ def midi_note_cmd(note, vel, cmd, uptime = 0):
 # Script setup
 #
 
-# midi device naming
+# midi device naming; avoid spaces
 name = "MidiCmdServer"
 
 # set up midi cc commands here
@@ -71,8 +72,9 @@ mido.set_backend('mido.backends.rtmidi')
 # system command to set up the midi thru port
 # TODO would be nice to do this in python, but
 # rtmidi has issues seeing ports it has created
-runCmd = "amidithru '" + name + "' &"
-os.system(runCmd)
+#os.system(runCmd)
+amidiProc = subprocess.Popen(['amidithru', name])
+#print("launched amidithru with pid %s" % amidiProc.pid)
 
 # regex to match on rtmidi port name convention
 nameRegex = "(" + name + ":" + name + "\s+\d+:\d+)"
@@ -89,7 +91,7 @@ def uptime():
 
 # keep running and watch for midi cc
 while True:
-  time.sleep(.1)
+  time.sleep(.01)
   while inport.pending():
     msg = inport.receive()
     if msg.type == "control_change":
@@ -105,15 +107,15 @@ while True:
           else:
             os.system(myCmd)
     if msg.type == "note_on":
-      if msg.note in cmds:
+      if msg.note in note_cmds:
         if msg.velocity in note_cmds[msg.note]["velocity"]:
           # do not trigger too quickly on notes
-          if note_cmds[msg.note]["lastTriggered"] + note_cmd_retrigger_delay < uptime()
+          if note_cmds[msg.note]["lastTriggered"] + note_cmd_retrigger_delay < uptime():
             note_cmds[msg.note]["lastTriggered"] = uptime()
             # apped " &" to the end of commands, to run them in background
             # and immediately get back to the script
-            myCmd = note_cmds[msg.control][msg.value]["cmd"] + " &"
-            upCheck = note_cmds[msg.control][msg.value]["uptime"]
+            myCmd = note_cmds[msg.note]["cmd"] + " &"
+            upCheck = note_cmds[msg.note]["uptime"]
             if upCheck > 0:
               if uptime() > upCheck:
                 os.system(myCmd)
