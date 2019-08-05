@@ -39,28 +39,27 @@ def midi_note_cmd(note, vel, cmd, uptime = 0):
 #
 
 # midi device naming; avoid spaces
-name = "MidiCmdServer"
+name = "MidiCmdServer2"
 
 # set up midi cc commands here
 # midi_cmd ( cc, cc_val, command, optional uptime seconds restriction )
 midi_cc_cmd(64, 127, "echo '64 on' >> /tmp/test", 120)
+midi_cc_cmd(64, 0,   "echo '64 off' >> /tmp/test")
 # this would be the shutdown server functionality here
 #midi_cmd(64, 127, "init 0", 120)
-midi_cc_cmd(64, 0,   "echo '64 off' >> /tmp/test")
 
 # midi note cmd for switching to a pedalboard
-# example commands requires newest modep-btn-scripts: https://github.com/BlokasLabs/modep-btn-scripts
-#midi_note_cmd(note, min velocity, "cmd", uptimeSecs)
-midi_note_cmd(64, 64, "/usr/local/modep/modep-btn-scripts/modep-ctrl.py load-board DEFAULT")
-midi_note_cmd(65, 64, "/usr/local/modep/modep-btn-scripts/modep-ctrl.py load-board DISTORTION")
-midi_note_cmd(1, 64, "/usr/local/modep/modep-btn-scripts/modep-ctrl.py load-board mono_synth")
-midi_note_cmd(2, 64, "/usr/local/modep/modep-btn-scripts/modep-ctrl.py load-board insanity")
+# example modep-ctrl.py requires newest modep-btn-scripts: 
+# https://github.com/BlokasLabs/modep-btn-scripts
+#midi_note_cmd(note, min velocity, "cmd", optional min uptime secs)
+#midi_note_cmd(64, 64, "/usr/local/modep/modep-btn-scripts/modep-ctrl.py load-board DEFAULT")
+midi_note_cmd(64, 64, "echo 'this was midi note 64 above velocity 64' >> /tmp/midinote")
 
 # the minimum number of seconds that must pass before
 # a note on can retrigger it's command. May need to
 # increase this if you have notes that ring out, or shorten
 # it if you need commands to retrigger very quickly
-note_cmd_retrigger_delay = 1
+note_cmd_retrigger_delay = .5
 
 #
 # Logic below
@@ -108,7 +107,7 @@ while True:
             os.system(myCmd)
     if msg.type == "note_on":
       if msg.note in note_cmds:
-        if msg.velocity in note_cmds[msg.note]["velocity"]:
+        if msg.velocity > note_cmds[msg.note]["velocity"]:
           # do not trigger too quickly on notes
           if note_cmds[msg.note]["lastTriggered"] + note_cmd_retrigger_delay < uptime():
             note_cmds[msg.note]["lastTriggered"] = uptime()
