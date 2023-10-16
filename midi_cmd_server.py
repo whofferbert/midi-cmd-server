@@ -90,7 +90,6 @@ def uptime():
 
 # keep running and watch for midi cc
 for msg in inport:
-  print( msg )
   if msg.type == "control_change":
     if msg.control in cc_cmds:
       if msg.value in cc_cmds[msg.control]:
