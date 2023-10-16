@@ -13,27 +13,26 @@ import os
 import subprocess
 import re
 
-cc_cmds = dict()
-note_cmds = dict()
+cmds = dict()
 
-def midi_cc_cmd(cc, val, cmd, uptime = 0):
-  global cc_cmds
-  if cc not in cc_cmds:
-    cc_cmds[cc] = {}
-  cc_cmds[cc][val] = {}
-  cc_cmds[cc][val]["cmd"] = cmd
-  cc_cmds[cc][val]["uptime"] = uptime
+def midi_cc_cmd(chan, cc, val, cmd, uptime = 0):
+  key = "control_change-{0}-{1}-{2}".format( chan, cc, val )
+  cmds[ key ] = {
+    'cmd': cmd + ' &',
+    'uptime': uptime,
+    'lastTriggered': 0
+  }
 
-def midi_note_cmd(note, vel, cmd, uptime = 0):
-  global note_cmds
-  if note not in note_cmds:
-    note_cmds[note] = {}
-  note_cmds[note]["velocity"] = vel
-  note_cmds[note]["cmd"] = cmd
-  note_cmds[note]["uptime"] = uptime
-  note_cmds[note]["lastTriggered"] = 0;
+def midi_note_cmd(chan, note, vel, cmd, uptime = 0):
+  key = "note_on-{0}-{1}".format( chan, note )
+  cmds[ key ] = {
+    'velocity': vel,
+    'cmd': cmd + ' &',
+    'uptime': uptime,
+    'lastTriggered': 0
+  }
 
-#
+
 #
 # Script setup
 #
@@ -42,18 +41,18 @@ def midi_note_cmd(note, vel, cmd, uptime = 0):
 name = "MidiCmdServer2"
 
 # set up midi cc commands here
-# midi_cmd ( cc, cc_val, command, optional uptime seconds restriction )
-midi_cc_cmd(64, 127, "echo '64 on' >> /tmp/test", 120)
-midi_cc_cmd(64, 0,   "echo '64 off' >> /tmp/test")
+# midi_cmd ( channel, cc, cc_val, command, optional uptime seconds restriction )
+#midi_cc_cmd(0, 64, 127, "echo '64 on' >> /tmp/test", 120)
+#midi_cc_cmd(0, 64, 0,   "echo '64 off' >> /tmp/test")
 # this would be the shutdown server functionality here
 #midi_cmd(64, 127, "init 0", 120)
 
 # midi note cmd for switching to a pedalboard
 # example modep-ctrl.py requires newest modep-btn-scripts: 
 # https://github.com/BlokasLabs/modep-btn-scripts
-#midi_note_cmd(note, min velocity, "cmd", optional min uptime secs)
+#midi_note_cmd(channel, note, min velocity, "cmd", optional min uptime secs)
 #midi_note_cmd(64, 64, "/usr/local/modep/modep-btn-scripts/modep-ctrl.py load-board DEFAULT")
-midi_note_cmd(64, 64, "echo 'this was midi note 64 above velocity 64' >> /tmp/midinote")
+#midi_note_cmd(0, 64, 64, "echo 'this was midi note 64 above velocity 64' >> /tmp/midinote")
 
 # the minimum number of seconds that must pass before
 # a note on can retrigger it's command. May need to
@@ -83,37 +82,34 @@ input_name = newList[0]
 
 inport = mido.open_input(input_name)
 
+
 def uptime():
   with open('/proc/uptime', 'r') as f:
     uptime_seconds = float(f.readline().split()[0])
     return uptime_seconds
 
+
+def runcmd( cmd ):
+  up = uptime()
+  if cmd['uptime'] > 0 and up < cmd['uptime']: return
+  if cmd['lastTriggered'] + note_cmd_retrigger_delay < up:
+    os.system( cmd['cmd'] )
+    cmd['lastTriggered'] = up
+
+
 # keep running and watch for midi cc
 for msg in inport:
+  cmd = None
+  key = None
+
   if msg.type == "control_change":
-    if msg.control in cc_cmds:
-      if msg.value in cc_cmds[msg.control]:
-        # apped " &" to the end of commands, to run them in background
-        # and immediately get back to the script
-        myCmd = cc_cmds[msg.control][msg.value]["cmd"] + " &"
-        upCheck = cc_cmds[msg.control][msg.value]["uptime"]
-        if upCheck > 0:
-          if uptime() > upCheck:
-            os.system(myCmd)
-        else:
-          os.system(myCmd)
+    key = "{0}-{1}-{2}-{3}".format( msg.type, msg.channel, msg.control, msg.value )
+    cmd = cmds.get( key )
+    if cmd is None: continue
+    runcmd( cmd )
   if msg.type == "note_on":
-    if msg.note in note_cmds:
-      if msg.velocity > note_cmds[msg.note]["velocity"]:
-        # do not trigger too quickly on notes
-        if note_cmds[msg.note]["lastTriggered"] + note_cmd_retrigger_delay < uptime():
-          note_cmds[msg.note]["lastTriggered"] = uptime()
-          # apped " &" to the end of commands, to run them in background
-          # and immediately get back to the script
-          myCmd = note_cmds[msg.note]["cmd"] + " &"
-          upCheck = note_cmds[msg.note]["uptime"]
-          if upCheck > 0:
-            if uptime() > upCheck:
-              os.system(myCmd)
-          else:
-            os.system(myCmd)
+    key = "{0}-{1}-{2}".format( msg.type, msg.channel, msg.note )
+    cmd = cmds.get( key )
+    if cmd is None: continue
+    if msg.velocity >= cmd["velocity"]: runcmd( cmd )
+
