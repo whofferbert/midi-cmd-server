@@ -91,8 +91,7 @@ def uptime():
 # keep running and watch for midi cc
 while True:
   time.sleep(.01)
-  while inport.pending():
-    msg = inport.receive()
+  for msg in inport:
     if msg.type == "control_change":
       if msg.control in cc_cmds:
         if msg.value in cc_cmds[msg.control]:
