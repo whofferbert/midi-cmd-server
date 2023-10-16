@@ -89,34 +89,31 @@ def uptime():
     return uptime_seconds
 
 # keep running and watch for midi cc
-while True:
-  time.sleep(.01)
-  while inport.pending():
-    msg = inport.receive()
-    if msg.type == "control_change":
-      if msg.control in cc_cmds:
-        if msg.value in cc_cmds[msg.control]:
+for msg in inport:
+  if msg.type == "control_change":
+    if msg.control in cc_cmds:
+      if msg.value in cc_cmds[msg.control]:
+        # apped " &" to the end of commands, to run them in background
+        # and immediately get back to the script
+        myCmd = cc_cmds[msg.control][msg.value]["cmd"] + " &"
+        upCheck = cc_cmds[msg.control][msg.value]["uptime"]
+        if upCheck > 0:
+          if uptime() > upCheck:
+            os.system(myCmd)
+        else:
+          os.system(myCmd)
+  if msg.type == "note_on":
+    if msg.note in note_cmds:
+      if msg.velocity > note_cmds[msg.note]["velocity"]:
+        # do not trigger too quickly on notes
+        if note_cmds[msg.note]["lastTriggered"] + note_cmd_retrigger_delay < uptime():
+          note_cmds[msg.note]["lastTriggered"] = uptime()
           # apped " &" to the end of commands, to run them in background
           # and immediately get back to the script
-          myCmd = cc_cmds[msg.control][msg.value]["cmd"] + " &"
-          upCheck = cc_cmds[msg.control][msg.value]["uptime"]
+          myCmd = note_cmds[msg.note]["cmd"] + " &"
+          upCheck = note_cmds[msg.note]["uptime"]
           if upCheck > 0:
             if uptime() > upCheck:
               os.system(myCmd)
           else:
             os.system(myCmd)
-    if msg.type == "note_on":
-      if msg.note in note_cmds:
-        if msg.velocity > note_cmds[msg.note]["velocity"]:
-          # do not trigger too quickly on notes
-          if note_cmds[msg.note]["lastTriggered"] + note_cmd_retrigger_delay < uptime():
-            note_cmds[msg.note]["lastTriggered"] = uptime()
-            # apped " &" to the end of commands, to run them in background
-            # and immediately get back to the script
-            myCmd = note_cmds[msg.note]["cmd"] + " &"
-            upCheck = note_cmds[msg.note]["uptime"]
-            if upCheck > 0:
-              if uptime() > upCheck:
-                os.system(myCmd)
-            else:
-              os.system(myCmd)
